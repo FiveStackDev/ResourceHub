@@ -15,6 +15,7 @@ import ballerina/sql;
     }
 }
 service /dashboard/admin on database:dashboardListener {
+    // STAT CARD OPERATIONS
     // Only admin can access dashboard admin endpoints
     resource function get stats(http:Request req) returns json|error {
         jwt:Payload payload = check common:getValidatedPayload(req);
@@ -24,19 +25,29 @@ service /dashboard/admin on database:dashboardListener {
 
         int orgId = check common:getOrgId(payload);
 
-        // Existing counts
-        record {|int user_count;|} userResult = check database:dbClient->queryRow(`SELECT COUNT(user_id) AS user_count FROM users WHERE org_id = ${orgId}`);
-        int userCount = userResult.user_count;
+        // Optimized query to get all counts in a single database call
+        record {|
+            int user_count;
+            int mealevents_count;
+            int assetrequests_count;
+            int maintenance_count;
+        |} statsCounts = check database:dbClient->queryRow(`
+            SELECT
+                (SELECT COUNT(user_id) FROM users WHERE org_id = ${orgId}) AS user_count,
+                (SELECT COUNT(requestedmeal_id) FROM requestedmeals WHERE org_id = ${orgId}) AS mealevents_count,
+                (SELECT COUNT(requestedasset_id) FROM requestedassets WHERE org_id = ${orgId}) AS assetrequests_count,
+                (SELECT COUNT(maintenance_id) FROM maintenance WHERE org_id = ${orgId}) AS maintenance_count
+        `);
 
-        record {|int mealevents_count;|} mealResult = check database:dbClient->queryRow(`SELECT COUNT(requestedmeal_id) AS mealevents_count FROM requestedmeals WHERE org_id = ${orgId}`);
-        int mealEventsCount = mealResult.mealevents_count;
+        int userCount = statsCounts.user_count;
+        int mealEventsCount = statsCounts.mealevents_count;
+        int assetRequestsCount = statsCounts.assetrequests_count;
+        int maintenanceCount = statsCounts.maintenance_count;
 
-        record {|int assetrequests_count;|} assetRequestsResult = check database:dbClient->queryRow(`SELECT COUNT(requestedasset_id) AS assetrequests_count FROM requestedassets WHERE org_id = ${orgId}`);
-        int assetRequestsCount = assetRequestsResult.assetrequests_count;
-
-        record {|int maintenance_count;|} maintenanceResult = check database:dbClient->queryRow(`SELECT COUNT(maintenance_id) AS maintenance_count FROM maintenance WHERE org_id = ${orgId}`);
-        int maintenanceCount = maintenanceResult.maintenance_count;
-
+        // Month labels for charts
+        string[] monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        
+        // EACH STATCARD POPUP OPERATIONS
         // Query to get user count by month
         stream<MonthlyUserData, sql:Error?> monthlyUserStream = database:dbClient->query(
         `SELECT EXTRACT(MONTH FROM created_at) AS month, COUNT(user_id) AS count 
@@ -129,8 +140,6 @@ service /dashboard/admin on database:dashboardListener {
             monthlyMaintenanceCounts[row.month - 1] = row.count;
         }
 
-        // Month labels for charts
-        string[] monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         // Construct the JSON response with monthLabels
         return [
             {
@@ -164,35 +173,7 @@ service /dashboard/admin on database:dashboardListener {
         ];
     }
 
-    // Resource to get data for resource cards
-    resource function get resources(http:Request req) returns json|error {
-        jwt:Payload payload = check common:getValidatedPayload(req);
-        if (!common:hasAnyRole(payload, ["Admin", "SuperAdmin"])) {
-            return error("Forbidden: You do not have permission to access this resource");
-        }
-
-        return [
-            {
-                title: "Food Supplies",
-                total: 1250,
-                highPriority: 45,
-                progress: 75
-            },
-            {
-                title: "Medical Kits",
-                total: 358,
-                highPriority: 20,
-                progress: 60
-            },
-            {
-                title: "Shelter Equipment",
-                total: 523,
-                highPriority: 32,
-                progress: 85
-            }
-        ];
-    }
-
+    // MEAL DASHBOARD OPERATIONS
     // Resource to get meal distribution data for pie chart
     resource function get mealdistribution(http:Request req) returns json|error {
         jwt:Payload payload = check common:getValidatedPayload(req);
@@ -279,6 +260,7 @@ service /dashboard/admin on database:dashboardListener {
         };
     }
 
+    // PIE CHART OPERATIONS
     // Resource to get resource allocation data
     resource function get resourceallocation(http:Request req) returns json|error {
         jwt:Payload payload = check common:getValidatedPayload(req);
@@ -318,6 +300,36 @@ service /dashboard/admin on database:dashboardListener {
         }
 
         return result;
+    }
+    
+    // REST OF OPERATIONS
+    // Resource to get data for resource cards
+    resource function get resources(http:Request req) returns json|error {
+        jwt:Payload payload = check common:getValidatedPayload(req);
+        if (!common:hasAnyRole(payload, ["Admin", "SuperAdmin"])) {
+            return error("Forbidden: You do not have permission to access this resource");
+        }
+
+        return [
+            {
+                title: "Food Supplies",
+                total: 1250,
+                highPriority: 45,
+                progress: 75
+            },
+            {
+                title: "Medical Kits",
+                total: 358,
+                highPriority: 20,
+                progress: 60
+            },
+            {
+                title: "Shelter Equipment",
+                total: 523,
+                highPriority: 32,
+                progress: 85
+            }
+        ];
     }
 
     resource function options .() returns http:Ok {
