@@ -8,13 +8,10 @@ import {
   CalendarDays,
   PackageCheck,
 } from 'lucide-react';
-// import axios from 'axios';
 import AdminLayout from '../../layouts/Admin/AdminLayout';
 import { StatCard } from '../../components/Dashboard/Admin/StatCard';
-// import { ResourceCard } from '../../components/Dashboard/Admin/ResourceCard';
 import { MealDistributionChart } from '../../components/Dashboard/Admin/MealDistributionChart';
 import { ResourceAllocation } from '../../components/Dashboard/Admin/ResourceAllocation';
-// import { getMonthLabels } from '../../utils/dateUtils';
 import { useAdminDashboardData } from '../../query/adminDashboardQueries';
 import { QuickActions } from '../../components/Dashboard/User/QuickActions';
 
@@ -42,17 +39,6 @@ const customUserActions = [
   },
 ];
 
-// Axios instance with JWT token for authenticated endpoints
-const getAuthConfig = () => {
-  const token = localStorage.getItem('token');
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  };
-};
-
 // Map icon names (strings) to actual icon components
 const iconMap = {
   Users: <Users className="text-blue-500" />,
@@ -62,10 +48,6 @@ const iconMap = {
 };
 
 const AdminDashboard = () => {
-  // Use dynamic month labels from backend if available
-  // If you use axios directly for authenticated endpoints, use getAuthConfig()
-  // Example:
-  // const response = await axios.get(`${BASE_URL}/some-protected-endpoint`, getAuthConfig());
   const { data, isLoading, isError, error, refetch } = useAdminDashboardData();
 
   if (isLoading) {
@@ -83,7 +65,7 @@ const AdminDashboard = () => {
           {error?.message ||
             'Failed to load dashboard data. Please try again later.'}
           <button
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2 mt-4 text-white bg-blue-500 rounded hover:bg-blue-600"
             onClick={() => refetch()}
           >
             Retry
@@ -97,11 +79,11 @@ const AdminDashboard = () => {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen space-y-6 p-6">
+      <div className="min-h-screen p-6 space-y-6">
         {/* Heading */}
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, index) => (
             <StatCard
               key={index}
@@ -116,7 +98,7 @@ const AdminDashboard = () => {
           ))}
         </div>
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <MealDistributionChart data={mealData} />
           </div>
@@ -124,19 +106,6 @@ const AdminDashboard = () => {
             <ResourceAllocation data={resourceData} />
           </div>
         </div>
-        {/* Resource Cards
-        <h2 className="text-xl font-semibold pt-4">Resource Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {resources.map((resource, index) => (
-            <ResourceCard
-              key={index}
-              title={resource.title}
-              total={resource.total}
-              highPriority={resource.highPriority}
-              progress={resource.progress}
-            />
-          ))}
-        </div> */}
         <QuickActions actions={customUserActions} />
       </div>
     </AdminLayout>
