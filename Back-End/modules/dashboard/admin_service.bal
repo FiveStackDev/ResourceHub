@@ -50,7 +50,7 @@ service /dashboard/admin on database:dashboardListener {
         int currentMonth = civilTime.month;
         string[] allMonthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         
-        int startMonthIndex = (currentMonth - 1 - 6 + 12) % 12;
+        int startMonthIndex = (currentMonth - 1 - 11 + 12) % 12;
         string[] monthLabels = [];
         foreach int i in 0...11 {
             monthLabels.push(allMonthLabels[(startMonthIndex + i) % 12]);
@@ -226,7 +226,7 @@ service /dashboard/admin on database:dashboardListener {
         `SELECT DAYOFWEEK(meal_request_date) AS day_of_week, mealtimes.mealtime_name, COUNT(requestedmeal_id) AS count 
          FROM requestedmeals 
          JOIN mealtimes ON requestedmeals.meal_time_id = mealtimes.mealtime_id
-         WHERE requestedmeals.org_id = ${orgId}
+         WHERE requestedmeals.org_id = ${orgId} AND meal_request_date >= CURDATE() - INTERVAL 6 DAY
          GROUP BY DAYOFWEEK(meal_request_date), mealtimes.mealtime_name
          ORDER BY day_of_week, mealtimes.mealtime_name`,
         MealDistributionData
@@ -275,7 +275,7 @@ service /dashboard/admin on database:dashboardListener {
         // Reorder day labels and data
         string[] allDayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         string[] dayLabels = [];
-        int startDayIndex = (currentDayOfWeek - 1 - 3 + 7) % 7; // Start from 3 days ago
+        int startDayIndex = (currentDayOfWeek - 1 - 6 + 7) % 7; // Start from 6 days ago
         foreach int i in 0...6 {
             dayLabels.push(allDayLabels[(startDayIndex + i) % 7]);
         }
