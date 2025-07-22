@@ -5,6 +5,7 @@ import ballerina/http;
 import ballerina/io;
 import ballerina/jwt;
 import ballerina/sql;
+import ballerina/time;
 
 // DashboardAdminService - RESTful service to provide data for admin dashboard
 @http:ServiceConfig {
@@ -45,7 +46,15 @@ service /dashboard/admin on database:dashboardListener {
         int maintenanceCount = statsCounts.maintenance_count;
 
         // Month labels for charts
-        string[] monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        time:Civil civilTime = time:utcToCivil(time:utcNow());
+        int currentMonth = civilTime.month;
+        string[] allMonthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        
+        int startMonthIndex = (currentMonth - 1 - 6 + 12) % 12;
+        string[] monthLabels = [];
+        foreach int i in 0...11 {
+            monthLabels.push(allMonthLabels[(startMonthIndex + i) % 12]);
+        }
         
         // EACH STATCARD POPUP OPERATIONS
         // Query to get user count by month
@@ -66,9 +75,13 @@ service /dashboard/admin on database:dashboardListener {
             };
 
         // Create an array for all 12 months for users, initialized with 0
-        int[] monthlyUserCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        int[] monthlyUserCountsAll = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         foreach var row in monthlyUserData {
-            monthlyUserCounts[row.month - 1] = row.count;
+            monthlyUserCountsAll[row.month - 1] = row.count;
+        }
+        int[] monthlyUserCounts = [];
+        foreach int i in 0...11 {
+            monthlyUserCounts.push(monthlyUserCountsAll[(startMonthIndex + i) % 12]);
         }
 
         // Query to get meal events count by month
@@ -89,9 +102,13 @@ service /dashboard/admin on database:dashboardListener {
             };
 
         // Create an array for all 12 months for meal events, initialized with 0
-        int[] monthlyMealCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        int[] monthlyMealCountsAll = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         foreach var row in monthlyMealData {
-            monthlyMealCounts[row.month - 1] = row.count;
+            monthlyMealCountsAll[row.month - 1] = row.count;
+        }
+        int[] monthlyMealCounts = [];
+        foreach int i in 0...11 {
+            monthlyMealCounts.push(monthlyMealCountsAll[(startMonthIndex + i) % 12]);
         }
 
         // Query to get asset requests count by month
@@ -112,9 +129,13 @@ service /dashboard/admin on database:dashboardListener {
             };
 
         // Create an array for all 12 months for asset requests, initialized with 0
-        int[] monthlyAssetRequestCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        int[] monthlyAssetRequestCountsAll = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         foreach var row in monthlyAssetRequestData {
-            monthlyAssetRequestCounts[row.month - 1] = row.count;
+            monthlyAssetRequestCountsAll[row.month - 1] = row.count;
+        }
+        int[] monthlyAssetRequestCounts = [];
+        foreach int i in 0...11 {
+            monthlyAssetRequestCounts.push(monthlyAssetRequestCountsAll[(startMonthIndex + i) % 12]);
         }
 
         // Query to get maintenance count by month
@@ -135,9 +156,13 @@ service /dashboard/admin on database:dashboardListener {
             };
 
         // Create an array for all 12 months for maintenance, initialized with 0
-        int[] monthlyMaintenanceCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        int[] monthlyMaintenanceCountsAll = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         foreach var row in monthlyMaintenanceData {
-            monthlyMaintenanceCounts[row.month - 1] = row.count;
+            monthlyMaintenanceCountsAll[row.month - 1] = row.count;
+        }
+        int[] monthlyMaintenanceCounts = [];
+        foreach int i in 0...11 {
+            monthlyMaintenanceCounts.push(monthlyMaintenanceCountsAll[(startMonthIndex + i) % 12]);
         }
 
         // Construct the JSON response with monthLabels
@@ -233,19 +258,43 @@ service /dashboard/admin on database:dashboardListener {
             }
         }
 
-        // Define border colors for datasets (cycle through a predefined list)
-        string[] borderColors = ["#4C51BF", "#38B2AC", "#ED8936", "#E53E3E", "#805AD5", "#319795", "#DD6B20"];
+        // Get current day of week (1=Sun, 2=Mon, ..., 7=Sat)
+        time:Utc utcNow = time:utcNow();
+        time:Civil currentTime = time:utcToCivil(utcNow);
+        int currentDayOfWeek = 0;
+        match currentTime.dayOfWeek {
+            "SUNDAY" => { currentDayOfWeek = 1; }
+            "MONDAY" => { currentDayOfWeek = 2; }
+            "TUESDAY" => { currentDayOfWeek = 3; }
+            "WEDNESDAY" => { currentDayOfWeek = 4; }
+            "THURSDAY" => { currentDayOfWeek = 5; }
+            "FRIDAY" => { currentDayOfWeek = 6; }
+            "SATURDAY" => { currentDayOfWeek = 7; }
+        }
+
+        // Reorder day labels and data
+        string[] allDayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        string[] dayLabels = [];
+        int startDayIndex = (currentDayOfWeek - 1 - 3 + 7) % 7; // Start from 3 days ago
+        foreach int i in 0...6 {
+            dayLabels.push(allDayLabels[(startDayIndex + i) % 7]);
+        }
+
         json[] datasets = [];
+        string[] borderColors = ["#4C51BF", "#38B2AC", "#ED8936", "#E53E3E", "#805AD5", "#319795", "#DD6B20"];
         int colorIndex = 0;
 
-        // Create datasets dynamically
         foreach var meal in mealTimes {
             string mealName = meal.mealtime_name;
-            int[]? dataArray = mealDataMap[mealName];
-            if (dataArray is int[]) {
+            int[]? originalData = mealDataMap[mealName];
+            if (originalData is int[]) {
+                int[] reorderedData = [];
+                foreach int i in 0...6 {
+                    reorderedData.push(originalData[(startDayIndex + i) % 7]);
+                }
                 datasets.push({
                     "label": mealName,
-                    "data": dataArray,
+                    "data": reorderedData,
                     "borderColor": borderColors[colorIndex % borderColors.length()],
                     "tension": 0.4
                 });
@@ -255,7 +304,7 @@ service /dashboard/admin on database:dashboardListener {
 
         // Construct the JSON response
         return {
-            "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            "labels": dayLabels,
             "datasets": datasets
         };
     }
