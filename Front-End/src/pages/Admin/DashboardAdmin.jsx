@@ -11,6 +11,7 @@ import {
 import AdminLayout from '../../layouts/Admin/AdminLayout';
 import { StatCard } from '../../components/Dashboard/Admin/StatCard';
 import { MealDistributionChart } from '../../components/Dashboard/Admin/MealDistributionChart';
+import { MealTypeDistribution } from '../../components/Dashboard/Admin/MealTypeDistribution';
 import { ResourceAllocation } from '../../components/Dashboard/Admin/ResourceAllocation';
 import { useAdminDashboardData } from '../../query/adminDashboardQueries';
 import { QuickActions } from '../../components/Dashboard/User/QuickActions';
@@ -76,6 +77,8 @@ const AdminDashboard = () => {
   }
 
   const { stats, resources, mealData, resourceData } = data;
+  // Optionally, you can add a date picker and pass date to MealTypeDistribution
+  // For now, it defaults to today if not provided
 
   return (
     <AdminLayout>
@@ -97,13 +100,16 @@ const AdminDashboard = () => {
             />
           ))}
         </div>
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-1">
+        {/* Optimized Charts Row with 1:3:1 ratio */}
+        <div className="grid items-stretch grid-cols-1 gap-6 lg:grid-cols-5">
+          <div className="flex flex-col h-full lg:col-span-1">
             <ResourceAllocation data={resourceData} />
           </div>
-          <div className="lg:col-span-2">
+          <div className="flex flex-col h-full lg:col-span-3">
             <MealDistributionChart data={mealData} />
+          </div>
+          <div className="flex flex-col h-full lg:col-span-1">
+            <MealTypeDistribution />
           </div>
         </div>
         <QuickActions actions={customUserActions} />

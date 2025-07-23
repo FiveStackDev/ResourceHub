@@ -52,6 +52,12 @@ export const ResourceAllocation = ({ data }) => {
         background: theme.palette.background.paper,
         color: theme.palette.text.primary,
         boxShadow: theme.shadows[1],
+        minHeight: 340,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
       }}
       className="p-6 rounded-lg"
     >
