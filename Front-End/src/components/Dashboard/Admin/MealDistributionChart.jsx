@@ -34,15 +34,19 @@ export const MealDistributionChart = ({ data }) => {
 
   // Generate labels for past 6 days, today, and tomorrow (8 days)
   const labels = [];
+  const today = new Date();
   for (let i = 6; i >= 0; i--) {
     const date = new Date();
-    date.setDate(date.getDate() - i);
-    labels.push(getDayShortName(date));
+    date.setDate(today.getDate() - i);
+    if (i === 0) {
+      labels.push(getDayShortName(date) + ' (Today)');
+    } else {
+      labels.push(getDayShortName(date));
+    }
   }
-  // Add tomorrow
   const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  labels.push(getDayShortName(tomorrow));
+  tomorrow.setDate(today.getDate() + 1);
+  labels.push(getDayShortName(tomorrow) + ' (Tomorrow)');
 
   // Find the maximum value in all datasets
   let maxValue = 0;
