@@ -180,7 +180,6 @@ export const MealTypeDistribution = ({ date }) => {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        // Removed justifyContent: 'center' to start content from top
         height: '100%',
       }}
       className="p-6 rounded-lg"
@@ -189,9 +188,16 @@ export const MealTypeDistribution = ({ date }) => {
         className="mb-2 text-xl font-semibold"
         style={{ color: theme.palette.text.primary }}
       >
-        Meal Type Distribution <span className="text-xs text-gray-500">{data && data.date ? `(${data.date})` : ''}</span>
+        Meal Type Distribution
       </h2>
-      <div className="flex justify-end w-full mb-2">
+      <p
+        className="mb-6 text-sm"
+        style={{ color: theme.palette.text.secondary }}
+      >
+        Distribution of meal types for the selected date
+      </p>
+      {chartContent}
+      <div className="flex justify-center w-full mt-6">
         <input
           type="date"
           value={selectedDate}
@@ -201,13 +207,6 @@ export const MealTypeDistribution = ({ date }) => {
           style={{ background: theme.palette.background.paper, color: theme.palette.text.primary }}
         />
       </div>
-      <p
-        className="mb-6 text-sm"
-        style={{ color: theme.palette.text.secondary }}
-      >
-        Distribution of meal types for the selected date
-      </p>
-      {chartContent}
     </div>
   );
 };
