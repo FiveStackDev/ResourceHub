@@ -383,12 +383,16 @@ service /dashboard/admin on database:dashboardListener {
 
         // Query to get meal type distribution for the selected date
         stream<record {| string mealtype; int count; |}, sql:Error?> mealTypeStream = database:dbClient->query(
-            `SELECT mealtimes.mealtime_name AS mealtype, COUNT(requestedmeals.requestedmeal_id) AS count
-              FROM requestedmeals
-              JOIN mealtimes ON requestedmeals.meal_time_id = mealtimes.mealtime_id
-              WHERE requestedmeals.org_id = ${orgId} AND DATE(requestedmeals.meal_request_date) = ${date}
-              GROUP BY mealtimes.mealtime_name
-              ORDER BY mealtimes.mealtime_name`,
+            `SELECT mealtypes.mealtype_name AS mealtype, 
+                    COUNT(requestedmeals.requestedmeal_id) AS count
+             FROM mealtypes
+             LEFT JOIN requestedmeals 
+               ON requestedmeals.meal_time_id = mealtypes.mealtype_id
+               AND requestedmeals.org_id = ${orgId}
+               AND DATE(requestedmeals.meal_request_date) = ${date}
+             WHERE mealtypes.org_id = ${orgId}
+             GROUP BY mealtypes.mealtype_name
+             ORDER BY mealtypes.mealtype_name`,
             typeof({mealtype: "", count: 0})
         );
 

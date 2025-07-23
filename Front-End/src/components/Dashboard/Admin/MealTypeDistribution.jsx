@@ -52,9 +52,10 @@ export const MealTypeDistribution = ({ date }) => {
     const dd = String(today.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   };
-  const selectedDate = date || getToday();
+  const initialDate = date || getToday();
 
   const theme = useTheme();
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -75,21 +76,99 @@ export const MealTypeDistribution = ({ date }) => {
       });
   }, [selectedDate]);
 
-  if (loading) return <div>Loading meal type distribution...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
-  if (!data || !data.data || data.data.length === 0)
-    return <div>No meal data for selected date.</div>;
+  if (loading) {
+    return (
+      <div
+        style={{
+          background: theme.palette.background.paper,
+          color: theme.palette.text.primary,
+          boxShadow: theme.shadows[1],
+          minHeight: 340,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          // Removed justifyContent: 'center' to start content from top
+          height: '100%',
+        }}
+        className="p-6 rounded-lg"
+      >
+        <h2
+          className="mb-2 text-xl font-semibold"
+          style={{ color: theme.palette.text.primary }}
+        >
+          Meal Type Distribution
+        </h2>
+        <div className="flex justify-end w-full mb-2">
+          <input
+            type="date"
+            value={selectedDate}
+            max={getToday()}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="px-2 py-1 text-sm border rounded"
+            style={{ background: theme.palette.background.paper, color: theme.palette.text.primary }}
+          />
+        </div>
+        <div>Loading meal type distribution...</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div
+        style={{
+          background: theme.palette.background.paper,
+          color: theme.palette.text.primary,
+          boxShadow: theme.shadows[1],
+          minHeight: 340,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          // Removed justifyContent: 'center' to start content from top
+          height: '100%',
+        }}
+        className="p-6 rounded-lg"
+      >
+        <h2
+          className="mb-2 text-xl font-semibold"
+          style={{ color: theme.palette.text.primary }}
+        >
+          Meal Type Distribution
+        </h2>
+        <div className="flex justify-end w-full mb-2">
+          <input
+            type="date"
+            value={selectedDate}
+            max={getToday()}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="px-2 py-1 text-sm border rounded"
+            style={{ background: theme.palette.background.paper, color: theme.palette.text.primary }}
+          />
+        </div>
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
 
-  const chartData = {
-    labels: data.data.map((d) => d.mealtype),
-    datasets: [
-      {
-        data: data.data.map((d) => d.count),
-        backgroundColor: COLORS,
-        borderWidth: 1,
-      },
-    ],
-  };
+  let chartContent;
+  if (!data || !data.data || data.data.length === 0) {
+    chartContent = (
+      <div className="flex items-center justify-center flex-1 text-gray-500" style={{ minHeight: 180 }}>
+        No meal data for selected date.
+      </div>
+    );
+  } else {
+    const chartData = {
+      labels: data.data.map((d) => d.mealtype),
+      datasets: [
+        {
+          data: data.data.map((d) => d.count),
+          backgroundColor: COLORS,
+          borderWidth: 1,
+        },
+      ],
+    };
+    chartContent = <Doughnut data={chartData} options={options} />;
+  }
 
   return (
     <div
@@ -101,7 +180,7 @@ export const MealTypeDistribution = ({ date }) => {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        // Removed justifyContent: 'center' to start content from top
         height: '100%',
       }}
       className="p-6 rounded-lg"
@@ -110,15 +189,25 @@ export const MealTypeDistribution = ({ date }) => {
         className="mb-2 text-xl font-semibold"
         style={{ color: theme.palette.text.primary }}
       >
-        Meal Type Distribution <span className="text-xs text-gray-500">({data.date})</span>
+        Meal Type Distribution <span className="text-xs text-gray-500">{data && data.date ? `(${data.date})` : ''}</span>
       </h2>
+      <div className="flex justify-end w-full mb-2">
+        <input
+          type="date"
+          value={selectedDate}
+          max={getToday()}
+          onChange={e => setSelectedDate(e.target.value)}
+          className="px-2 py-1 text-sm border rounded"
+          style={{ background: theme.palette.background.paper, color: theme.palette.text.primary }}
+        />
+      </div>
       <p
         className="mb-6 text-sm"
         style={{ color: theme.palette.text.secondary }}
       >
         Distribution of meal types for the selected date
       </p>
-      <Doughnut data={chartData} options={options} />
+      {chartContent}
     </div>
   );
 };
