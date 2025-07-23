@@ -1,0 +1,69 @@
+# Development environment with hot reloading
+version: '3.8'
+
+services:
+  frontend-dev:
+    build:
+      context: ./Front-End
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./Front-End:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=http://localhost:9090
+    networks:
+      - resourcehub-network
+    depends_on:
+      - backend-dev
+
+  backend-dev:
+    build:
+      context: ./Back-End
+      dockerfile: Dockerfile.dev
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./Back-End:/app
+    environment:
+      - BAL_ENV=development
+      - LOG_LEVEL=DEBUG
+    networks:
+      - resourcehub-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Database for development
+  db-dev:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: dev_root_password
+      MYSQL_DATABASE: resourcehub_dev
+      MYSQL_USER: dev_user
+      MYSQL_PASSWORD: dev_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - dev_db_data:/var/lib/mysql
+      - ./Back-End/resources/sql:/docker-entrypoint-initdb.d
+    networks:
+      - resourcehub-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  resourcehub-network:
+    driver: bridge
+
+volumes:
+  dev_db_data:

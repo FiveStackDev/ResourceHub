@@ -1,0 +1,153 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: Front-End/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./Front-End
+      run: npm ci
+
+    - name: Run frontend linting
+      working-directory: ./Front-End
+      run: npm run lint
+
+    - name: Run frontend tests
+      working-directory: ./Front-End
+      run: npm test -- --coverage --watchAll=false
+
+    - name: Set up Ballerina
+      uses: ballerina-platform/setup-ballerina@v1.1.0
+      with:
+        version: latest
+
+    - name: Build backend
+      working-directory: ./Back-End
+      run: bal build
+
+    - name: Run backend tests
+      working-directory: ./Back-End
+      run: bal test
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta-frontend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./Front-End
+        file: ./Front-End/Dockerfile.prod
+        push: true
+        tags: ${{ steps.meta-frontend.outputs.tags }}
+        labels: ${{ steps.meta-frontend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Extract metadata
+      id: meta-backend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./Back-End
+        file: ./Back-End/Dockerfile.prod
+        push: true
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        labels: ${{ steps.meta-backend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to production
+      run: |
+        echo "Add your deployment steps here"
+        echo "This could include:"
+        echo "- SSH to production server"
+        echo "- Pull latest images"
+        echo "- Run docker-compose up"
+        echo "- Perform health checks"

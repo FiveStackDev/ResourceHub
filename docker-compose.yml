@@ -1,51 +1,104 @@
+# 🚀 Simplified Docker Compose Configuration
+# Single file for both development and production
+
 services:
+  # Frontend Service
   frontend:
     build:
       context: ./Front-End
-      dockerfile: Dockerfile
+      dockerfile: ${DOCKERFILE:-Dockerfile}
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./Front-End:/app${DEV_VOLUME_SUFFIX:-}
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=${DEV_POLLING:-false}
+      - VITE_API_URL=http://localhost:${BACKEND_PORT:-9090}
+      - NODE_ENV=${NODE_ENV:-development}
     networks:
-      - resourcehub-network
+      - app-network
+    profiles:
+      - dev
+      - prod
 
+  # Backend Service
   backend:
     build:
       context: ./Back-End
-      dockerfile: Dockerfile
+      dockerfile: ${DOCKERFILE:-Dockerfile}
     ports:
-      - "9090:9090"
+      - "${BACKEND_PORT:-9090}:9090"
+    volumes:
+      - ./Back-End:/app${DEV_VOLUME_SUFFIX:-}
+    environment:
+      - BAL_ENV=${NODE_ENV:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-resourcehub}
+      - DB_USER=${DB_USER:-app_user}
+      - DB_PASSWORD=${DB_PASSWORD:-app_password}
     networks:
-      - resourcehub-network
-    # Add environment variables for database connection if needed
-    # environment:
-    #   - DB_HOST=db
-    #   - DB_PORT=3306
-    #   - DB_USER=user
-    #   - DB_PASSWORD=password
-    #   - DB_NAME=resourcehub
-    # depends_on:
-    #   - db # Uncomment if you add a database service
+      - app-network
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles:
+      - dev
+      - prod
+
+  # Database Service
+  database:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${DB_NAME:-resourcehub}
+      MYSQL_USER: ${DB_USER:-app_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/scripts:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - dev
+      - prod
+
+  # Production Nginx Proxy (only for production)
+  proxy:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./Back-End/resources/certificates:/etc/nginx/certs
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+    profiles:
+      - prod
 
 networks:
-  resourcehub-network:
+  app-network:
     driver: bridge
 
-# Add a database service if needed
-# volumes:
-#   db_data: # Persists database data
-
-# services:
-#   db:
-#     image: mysql:8.0
-#     restart: always
-#     environment:
-#       MYSQL_ROOT_PASSWORD: rootpassword
-#       MYSQL_DATABASE: resourcehub
-#       MYSQL_USER: user
-#       MYSQL_PASSWORD: password
-#     ports:
-#       - "3306:3306"
-#     volumes:
-#       - db_data:/var/lib/mysql
-#     networks:
-#       - resourcehub-network
+volumes:
+  db_data:

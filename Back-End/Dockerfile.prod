@@ -1,0 +1,39 @@
+# Production Dockerfile for Backend
+FROM ballerina/ballerina:latest AS build
+
+WORKDIR /app
+
+# Copy Ballerina configuration files first for better caching
+COPY Ballerina.toml Dependencies.toml ./
+
+# Install dependencies
+RUN bal pull
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN bal build
+
+# Production stage
+FROM ballerina/ballerina:latest
+
+WORKDIR /app
+
+# Copy built artifacts
+COPY --from=build /app/target/bin/ResourceHub.jar ./target/bin/
+COPY --from=build /app/Config.toml ./
+
+# Create non-root user for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN chown -R appuser:appgroup /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:9090/health || exit 1
+
+EXPOSE 9090
+
+USER appuser
+
+CMD ["bal", "run", "target/bin/ResourceHub.jar"]

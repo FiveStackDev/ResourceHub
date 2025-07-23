@@ -1,0 +1,34 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'resourcehub-backend'
+    static_configs:
+      - targets: ['backend:9090']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'resourcehub-frontend'
+    static_configs:
+      - targets: ['frontend:80']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['db:3306']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093

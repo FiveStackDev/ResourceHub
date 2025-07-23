@@ -1,0 +1,110 @@
+# Production environment
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./Front-End
+      dockerfile: Dockerfile.prod
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - VITE_API_URL=${API_URL:-http://localhost:9090}
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certificates:/etc/nginx/certs:ro
+    networks:
+      - resourcehub-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: ./Back-End
+      dockerfile: Dockerfile.prod
+    ports:
+      - "9090:9090"
+    environment:
+      - BAL_ENV=production
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=${DB_USER:-prod_user}
+      - DB_PASSWORD=${DB_PASSWORD:-prod_password}
+      - DB_NAME=${DB_NAME:-resourcehub}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    networks:
+      - resourcehub-network
+    depends_on:
+      - db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-resourcehub}
+      MYSQL_USER: ${DB_USER:-prod_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-prod_password}
+    volumes:
+      - prod_db_data:/var/lib/mysql
+      - ./Back-End/resources/sql:/docker-entrypoint-initdb.d
+      - ./backups:/backups
+    networks:
+      - resourcehub-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching (optional but recommended for production)
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - resourcehub-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Monitoring with Prometheus (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - resourcehub-network
+    profiles:
+      - monitoring
+
+networks:
+  resourcehub-network:
+    driver: bridge
+
+volumes:
+  prod_db_data:
+  redis_data:
+  prometheus_data:

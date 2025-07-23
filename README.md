@@ -1,16 +1,71 @@
-# Resource Hub
+# 🏢 ResourceHub - Simplified Resource Management
 
-**Resource Hub** is a full-stack web application for managing meals, assets, maintenance, and organizational resources. It offers distinct functionalities and dashboards for Administrators and Users, powered by a Ballerina backend and a modern React frontend.
+> **One-click setup, powerful features, simplified structure**
 
----
+ResourceHub is a streamlined web application for organizational resource management. Built with simplicity in mind while maintaining enterprise-grade features.
 
-## 📁 Project Structure
+## ⚡ Quick Start
+
+```cmd
+# 1. Clone the repository
+git clone https://github.com/FiveStackDev/ResourceHub.git
+cd ResourceHub
+
+# 2. One-time setup
+setup.bat
+
+# 3. Start development
+start-dev.bat
+```
+
+🎉 **Ready!** Open http://localhost:3000
+
+## 📁 Simplified Project Structure
 
 ```
-/Resource-Hub
-├── Front-End/                # React frontend app
-└── Back-End/                 # Ballerina backend API
+ResourceHub/
+├── 🚀 Quick Start
+│   ├── setup.bat           # One-click setup
+│   ├── start-dev.bat       # Start development  
+│   ├── start-prod.bat      # Start production
+│   └── test.bat            # Run all tests
+│
+├── 🎨 Front-End/           # React + Vite app
+├── ⚡ Back-End/            # Ballerina API
+├── 🐳 docker-compose.yml   # Unified deployment
+├── 🌍 .env                # Environment config
+├── 📊 database/           # SQL scripts
+├── 📁 uploads/            # File storage
+└── 📚 docs/               # Documentation
 ```
+
+## 🌟 Features
+
+- 🍽️ **Meal Management** - Plan organizational meals with calendar integration
+- 📦 **Asset Management** - Monitor equipment and resources
+- 🔧 **Maintenance Scheduling** - Track service requests and schedules  
+- 📊 **User Dashboard** - Role-based personalized dashboards
+- 📈 **Report Generation** - Detailed analytics and reporting
+- 🔔 **Notifications** - Real-time updates and alerts
+- 🏢 **Multi-tenancy** - Support multiple organizations
+
+# Using scripts
+./scripts/dev.sh        # Linux/macOS
+scripts\dev.bat         # Windows
+
+# Manual Docker Compose
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+### Production Environment
+
+```bash
+make setup-prod
+# Edit .env.prod with your configuration
+make prod
+```
+
+**Detailed setup instructions:** [DevOps Guide](docs/DEVOPS.md)
 
 ---
 
