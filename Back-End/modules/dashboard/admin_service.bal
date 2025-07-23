@@ -355,6 +355,58 @@ service /dashboard/admin on database:dashboardListener {
 
         return result;
     }
+
+    // NEW: Meal type distribution for a selected date (pie chart)
+    resource function get mealtypedist(http:Request req) returns json|error {
+        jwt:Payload payload = check common:getValidatedPayload(req);
+        if (!common:hasAnyRole(payload, ["Admin", "SuperAdmin"])) {
+            return error("Forbidden: You do not have permission to access this resource");
+        }
+
+        int orgId = check common:getOrgId(payload);
+
+
+        // Get date from query param, default to today if not provided
+
+        map<string[]> queryParams = req.getQueryParams();
+        string date = "";
+        if queryParams.hasKey("date") {
+            string[]? dateArrOpt = queryParams["date"];
+            if dateArrOpt is string[] && dateArrOpt.length() > 0 {
+                date = dateArrOpt[0];
+            }
+        }
+        if date == "" {
+            time:Civil civilNow = time:utcToCivil(time:utcNow());
+            date = string `${civilNow.year}-${civilNow.month < 10 ? "0" : ""}${civilNow.month}-${civilNow.day < 10 ? "0" : ""}${civilNow.day}`;
+        }
+
+        // Query to get meal type distribution for the selected date
+        stream<record {| string mealtype; int count; |}, sql:Error?> mealTypeStream = database:dbClient->query(
+            `SELECT mealtimes.mealtime_name AS mealtype, COUNT(requestedmeals.requestedmeal_id) AS count
+              FROM requestedmeals
+              JOIN mealtimes ON requestedmeals.meal_time_id = mealtimes.mealtime_id
+              WHERE requestedmeals.org_id = ${orgId} AND DATE(requestedmeals.meal_request_date) = ${date}
+              GROUP BY mealtimes.mealtime_name
+              ORDER BY mealtimes.mealtime_name`,
+            typeof({mealtype: "", count: 0})
+        );
+
+        // Convert stream to array
+        json[] result = [];
+        check from var row in mealTypeStream
+            do {
+                result.push({
+                    "mealtype": row.mealtype,
+                    "count": row.count
+                });
+            };
+
+        return {
+            "date": date,
+            "data": result
+        };
+    }
     
     resource function options .() returns http:Ok {
         return http:OK;
