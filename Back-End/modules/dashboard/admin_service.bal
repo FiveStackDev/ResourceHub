@@ -351,36 +351,6 @@ service /dashboard/admin on database:dashboardListener {
         return result;
     }
     
-    // REST OF OPERATIONS
-    // Resource to get data for resource cards
-    resource function get resources(http:Request req) returns json|error {
-        jwt:Payload payload = check common:getValidatedPayload(req);
-        if (!common:hasAnyRole(payload, ["Admin", "SuperAdmin"])) {
-            return error("Forbidden: You do not have permission to access this resource");
-        }
-
-        return [
-            {
-                title: "Food Supplies",
-                total: 1250,
-                highPriority: 45,
-                progress: 75
-            },
-            {
-                title: "Medical Kits",
-                total: 358,
-                highPriority: 20,
-                progress: 60
-            },
-            {
-                title: "Shelter Equipment",
-                total: 523,
-                highPriority: 32,
-                progress: 85
-            }
-        ];
-    }
-
     resource function options .() returns http:Ok {
         return http:OK;
     }
