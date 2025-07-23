@@ -21,19 +21,6 @@ ChartJS.register(
   Legend,
 );
 
-const options = {
-  responsive: true,
-  plugins: {
-    legend: {
-      position: 'bottom',
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-    },
-  },
-};
 
 // Updated to accept dynamic data as props
 export const MealDistributionChart = ({ data }) => {
@@ -45,13 +32,52 @@ export const MealDistributionChart = ({ data }) => {
     return days[date.getDay()];
   };
 
-  // Generate labels for the last 7 days
+  // Generate labels for past 6 days, today, and tomorrow (8 days)
   const labels = [];
   for (let i = 6; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     labels.push(getDayShortName(date));
   }
+  // Add tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  labels.push(getDayShortName(tomorrow));
+
+  // Find the maximum value in all datasets
+  let maxValue = 0;
+  if (Array.isArray(data.datasets)) {
+    data.datasets.forEach(ds => {
+      if (Array.isArray(ds.data)) {
+        const localMax = Math.max(...ds.data);
+        if (localMax > maxValue) maxValue = localMax;
+      }
+    });
+  }
+
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: maxValue + 3,
+        ticks: {
+          callback: function(value) {
+            if (Number.isInteger(value)) {
+              return value;
+            }
+            return '';
+          },
+          stepSize: 1,
+        },
+      },
+    },
+  };
 
   const chartData = {
     labels: labels,
@@ -74,13 +100,13 @@ export const MealDistributionChart = ({ data }) => {
       className="p-6 rounded-lg"
     >
       <h2
-        className="text-xl font-semibold mb-2"
+        className="mb-2 text-xl font-semibold"
         style={{ color: theme.palette.text.primary }}
       >
         Meal Distribution
       </h2>
       <p
-        className="text-sm mb-6"
+        className="mb-6 text-sm"
         style={{ color: theme.palette.text.secondary }}
       >
         Weekly meal service trends

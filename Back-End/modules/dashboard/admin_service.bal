@@ -221,14 +221,14 @@ service /dashboard/admin on database:dashboardListener {
                 mealTimes.push(row);
             };
 
-        // Query to get meal event counts by day of week and meal type
+        // Query to get meal event counts by date and meal type for 8 days (past 6 days, today, tomorrow)
         stream<MealDistributionData, sql:Error?> mealDistributionStream = database:dbClient->query(
-        `SELECT DAYOFWEEK(meal_request_date) AS day_of_week, mealtimes.mealtime_name, COUNT(requestedmeal_id) AS count 
+        `SELECT DATE(meal_request_date) AS meal_date, DAYOFWEEK(meal_request_date) AS day_of_week, mealtimes.mealtime_name, COUNT(requestedmeal_id) AS count 
          FROM requestedmeals 
          JOIN mealtimes ON requestedmeals.meal_time_id = mealtimes.mealtime_id
-         WHERE requestedmeals.org_id = ${orgId} AND meal_request_date >= CURDATE() - INTERVAL 6 DAY
-         GROUP BY DAYOFWEEK(meal_request_date), mealtimes.mealtime_name
-         ORDER BY day_of_week, mealtimes.mealtime_name`,
+         WHERE requestedmeals.org_id = ${orgId} AND meal_request_date BETWEEN CURDATE() - INTERVAL 6 DAY AND CURDATE() + INTERVAL 1 DAY
+         GROUP BY meal_date, DAYOFWEEK(meal_request_date), mealtimes.mealtime_name
+         ORDER BY meal_date, mealtimes.mealtime_name`,
         MealDistributionData
         );
 
@@ -239,45 +239,54 @@ service /dashboard/admin on database:dashboardListener {
                 mealDistributionData.push(row);
             };
 
-        // Initialize a map to store data arrays for each meal type
-        map<int[]> mealDataMap = {};
-        foreach var meal in mealTimes {
-            mealDataMap[meal.mealtime_name] = [0, 0, 0, 0, 0, 0, 0]; // 7 days: Sun, Mon, Tue, Wed, Thu, Fri, Sat
-        }
+        // Prepare 8 days: past 6 days, today, tomorrow
+        time:Utc utcNow = time:utcNow();
+        // Removed unused variable currentTime
+        int secondsInDay = 86400;
+        time:Utc startUtc = time:utcAddSeconds(utcNow, <time:Seconds>(-6 * secondsInDay));
+        // Removed unused variable startCivil
 
-        // Populate data arrays based on meal_name and day_of_week
-        foreach var row in mealDistributionData {
-            // DAYOFWEEK returns 1=Sunday, 2=Monday, ..., 7=Saturday
-            // Map to array index: 1->0 (Sun), 2->1 (Mon), ..., 7->6 (Sat)
-            int arrayIndex = row.day_of_week - 1;
-            if (mealDataMap.hasKey(row.mealtime_name)) {
-                int[]? dataArray = mealDataMap[row.mealtime_name];
-                if (dataArray is int[]) {
-                    dataArray[arrayIndex] = row.count;
-                }
+        // Build 8 consecutive dates (YYYY-MM-DD) and day labels
+        string[] dateKeys = [];
+        string[] dayLabels = [];
+        foreach int i in 0...7 {
+            time:Utc dUtc = time:utcAddSeconds(startUtc, <time:Seconds>(i * secondsInDay));
+            time:Civil dCivil = time:utcToCivil(dUtc);
+            string dateKey = string `${dCivil.year}-${dCivil.month < 10 ? "0" : ""}${dCivil.month}-${dCivil.day < 10 ? "0" : ""}${dCivil.day}`;
+            dateKeys.push(dateKey);
+            match dCivil.dayOfWeek {
+                time:SUNDAY => { dayLabels.push("Sun"); }
+                time:MONDAY => { dayLabels.push("Mon"); }
+                time:TUESDAY => { dayLabels.push("Tue"); }
+                time:WEDNESDAY => { dayLabels.push("Wed"); }
+                time:THURSDAY => { dayLabels.push("Thu"); }
+                time:FRIDAY => { dayLabels.push("Fri"); }
+                time:SATURDAY => { dayLabels.push("Sat"); }
+                _ => { dayLabels.push(""); }
             }
         }
 
-        // Get current day of week (1=Sun, 2=Mon, ..., 7=Sat)
-        time:Utc utcNow = time:utcNow();
-        time:Civil currentTime = time:utcToCivil(utcNow);
-        int currentDayOfWeek = 0;
-        match currentTime.dayOfWeek {
-            "SUNDAY" => { currentDayOfWeek = 1; }
-            "MONDAY" => { currentDayOfWeek = 2; }
-            "TUESDAY" => { currentDayOfWeek = 3; }
-            "WEDNESDAY" => { currentDayOfWeek = 4; }
-            "THURSDAY" => { currentDayOfWeek = 5; }
-            "FRIDAY" => { currentDayOfWeek = 6; }
-            "SATURDAY" => { currentDayOfWeek = 7; }
+        // Initialize a map to store data arrays for each meal type (8 days)
+        map<int[]> mealDataMap = {};
+        foreach var meal in mealTimes {
+            mealDataMap[meal.mealtime_name] = [0, 0, 0, 0, 0, 0, 0, 0];
         }
 
-        // Reorder day labels and data
-        string[] allDayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        string[] dayLabels = [];
-        int startDayIndex = (currentDayOfWeek - 1 - 6 + 7) % 7; // Start from 6 days ago
-        foreach int i in 0...6 {
-            dayLabels.push(allDayLabels[(startDayIndex + i) % 7]);
+        // Populate data arrays based on meal_name and meal_date
+        foreach var row in mealDistributionData {
+            string mealDate = row.meal_date;
+            string mealName = row.mealtime_name;
+            int count = row.count;
+            int? idxOpt = dateKeys.indexOf(mealDate);
+            if idxOpt is int {
+                int idx = idxOpt;
+                if mealDataMap.hasKey(mealName) {
+                    int[]? dataArray = mealDataMap[mealName];
+                    if (dataArray is int[]) {
+                        dataArray[idx] = count;
+                    }
+                }
+            }
         }
 
         json[] datasets = [];
@@ -286,15 +295,11 @@ service /dashboard/admin on database:dashboardListener {
 
         foreach var meal in mealTimes {
             string mealName = meal.mealtime_name;
-            int[]? originalData = mealDataMap[mealName];
-            if (originalData is int[]) {
-                int[] reorderedData = [];
-                foreach int i in 0...6 {
-                    reorderedData.push(originalData[(startDayIndex + i) % 7]);
-                }
+            int[]? dataArr = mealDataMap[mealName];
+            if (dataArr is int[]) {
                 datasets.push({
                     "label": mealName,
-                    "data": reorderedData,
+                    "data": dataArr,
                     "borderColor": borderColors[colorIndex % borderColors.length()],
                     "tension": 0.4
                 });
